@@ -24,7 +24,7 @@ const AiAnalysisPanel = ({ url }) => {
         // or try to parse it if we can.
         setResult(JSON.stringify(data, null, 2));
       } catch (err) {
-        setError(err.message || 'Errore durante l\'analisi (probabile CORS o API key mancante).');
+        setError(err.message || 'Errore durante l\'analisi (probabile CORS o API key errata).');
       } finally {
         setLoading(false);
       }

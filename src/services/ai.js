@@ -1,4 +1,9 @@
 export const analyzeRecipeLink = async (url) => {
+  const apiKey = localStorage.getItem('anthropic_api_key');
+  if (!apiKey || apiKey.trim() === '') {
+    throw new Error('Inserisci la tua API key nelle Impostazioni');
+  }
+
   const payload = {
     model: "claude-sonnet-4-20250514",
     max_tokens: 1000,
@@ -16,7 +21,7 @@ export const analyzeRecipeLink = async (url) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': '',
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true' // Helpful for direct browser calls
       },

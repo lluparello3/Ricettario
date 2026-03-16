@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useRecipeStore } from '../stores/useRecipeStore';
 import { exportRecipesData, importRecipesData } from '../utils/storage';
 import Navigation from '../components/Navigation';
@@ -6,6 +6,22 @@ import Navigation from '../components/Navigation';
 const Settings = () => {
   const { recipes, overwriteRecipes } = useRecipeStore();
   const fileInputRef = useRef(null);
+
+  const [apiKey, setApiKey] = useState('');
+  const [isApiKeySaved, setIsApiKeySaved] = useState(false);
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem('anthropic_api_key');
+    if (savedKey) {
+      setApiKey(savedKey);
+    }
+  }, []);
+
+  const handleSaveApiKey = () => {
+    localStorage.setItem('anthropic_api_key', apiKey.trim());
+    setIsApiKeySaved(true);
+    setTimeout(() => setIsApiKeySaved(false), 3000);
+  };
 
   const handleExport = () => {
     exportRecipesData(recipes);
@@ -44,6 +60,26 @@ const Settings = () => {
         <div className="card">
           <h2 style={{ marginBottom: '16px' }}>Gestione Dati</h2>
           
+          <div style={{ marginBottom: '24px' }}>
+            <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Anthropic API Key</h3>
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '12px' }}>
+              Inserisci la tua API Key per abilitare l'analisi AI dei link alle ricette. Verrà salvata solo nel tuo browser in modo sicuro.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input 
+                type="password" 
+                value={apiKey} 
+                onChange={(e) => setApiKey(e.target.value)} 
+                placeholder="sk-ant-..." 
+                style={{ flex: 1, maxWidth: '400px' }} 
+              />
+              <button className="btn btn-primary" onClick={handleSaveApiKey} style={{ padding: '12px 24px' }}>Salva</button>
+            </div>
+            {isApiKeySaved && <p style={{ color: '#2E7D32', fontSize: '14px', marginTop: '8px', fontWeight: 'bold' }}>API Key salvata con successo!</p>}
+          </div>
+
+          <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '24px 0' }} />
+
           <div style={{ marginBottom: '24px' }}>
             <h3 style={{ fontSize: '16px', marginBottom: '8px' }}>Esporta Ricette</h3>
             <p style={{ color: '#666', fontSize: '14px', marginBottom: '12px' }}>
