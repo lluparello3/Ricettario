@@ -6,14 +6,20 @@ const auth = vi.hoisted(() => ({
   session: null,
   getSession: vi.fn(async () => ({ data: { session: auth.session } })),
   onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: () => {} } } })),
-  signInWithOtp: vi.fn(async () => ({ error: null })),
-  verifyOtp: vi.fn(async () => ({ error: null })),
+  signInWithPassword: vi.fn(async () => ({ error: null })),
+  signUp: vi.fn(async () => ({ error: null })),
   signOut: vi.fn(async () => ({ error: null }))
 }));
 
 vi.mock('../lib/supabaseClient', () => ({ supabase: { auth } }));
 
 import { AuthGate } from '../auth/AuthGate';
+
+const fill = (email, password) => {
+  fireEvent.change(screen.getByLabelText('Email'), { target: { value: email } });
+  fireEvent.change(screen.getByLabelText('Password'), { target: { value: password } });
+  fireEvent.submit(screen.getByLabelText('Email').closest('form'));
+};
 
 describe('Accesso al ricettario', () => {
   beforeEach(() => {
@@ -23,33 +29,44 @@ describe('Accesso al ricettario', () => {
 
   it('senza sessione mostra il login e non l\'app', async () => {
     render(<AuthGate><div>APP</div></AuthGate>);
-    await waitFor(() => screen.getByText('Inviami il link'));
+    await waitFor(() => screen.getByText('Accedi'));
     expect(screen.queryByText('APP')).toBeNull();
   });
 
   it('rifiuta un\'email non abilitata senza contattare il server', async () => {
     render(<AuthGate><div>APP</div></AuthGate>);
     await waitFor(() => screen.getByLabelText('Email'));
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'estraneo@gmail.com' } });
-    fireEvent.submit(screen.getByLabelText('Email').closest('form'));
+    fill('estraneo@gmail.com', 'segreta123');
     await waitFor(() => screen.getByText('Questo indirizzo non è abilitato al ricettario.'));
-    expect(auth.signInWithOtp).not.toHaveBeenCalled();
+    expect(auth.signInWithPassword).not.toHaveBeenCalled();
+    expect(auth.signUp).not.toHaveBeenCalled();
   });
 
-  it('per un\'email abilitata invia il codice e chiede di inserirlo', async () => {
+  it('accede con email e password normalizzando l\'email', async () => {
     render(<AuthGate><div>APP</div></AuthGate>);
     await waitFor(() => screen.getByLabelText('Email'));
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: ' LLuparello3@gmail.com ' } });
-    fireEvent.submit(screen.getByLabelText('Email').closest('form'));
-    await waitFor(() => screen.getByLabelText('Codice'));
-    expect(auth.signInWithOtp).toHaveBeenCalledWith(
-      expect.objectContaining({ email: 'lluparello3@gmail.com' })
-    );
-    fireEvent.change(screen.getByLabelText('Codice'), { target: { value: '123456' } });
-    fireEvent.submit(screen.getByLabelText('Codice').closest('form'));
+    fill(' LLuparello3@gmail.com ', 'segreta123');
     await waitFor(() =>
-      expect(auth.verifyOtp).toHaveBeenCalledWith({ email: 'lluparello3@gmail.com', token: '123456', type: 'email' })
+      expect(auth.signInWithPassword).toHaveBeenCalledWith({ email: 'lluparello3@gmail.com', password: 'segreta123' })
     );
+  });
+
+  it('la prima volta crea la password per un\'email ammessa', async () => {
+    render(<AuthGate><div>APP</div></AuthGate>);
+    await waitFor(() => screen.getByText('Prima volta? Crea la tua password'));
+    fireEvent.click(screen.getByText('Prima volta? Crea la tua password'));
+    fill('alampresemaya.98@gmail.com', 'segreta123');
+    await waitFor(() =>
+      expect(auth.signUp).toHaveBeenCalledWith({ email: 'alampresemaya.98@gmail.com', password: 'segreta123' })
+    );
+  });
+
+  it('password sbagliata: messaggio chiaro', async () => {
+    auth.signInWithPassword.mockResolvedValueOnce({ error: { message: 'Invalid login credentials' } });
+    render(<AuthGate><div>APP</div></AuthGate>);
+    await waitFor(() => screen.getByLabelText('Email'));
+    fill('lluparello3@gmail.com', 'sbagliata');
+    await waitFor(() => screen.getByText(/Email o password sbagliate/));
   });
 
   it('con sessione valida mostra l\'app', async () => {

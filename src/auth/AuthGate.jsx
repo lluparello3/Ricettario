@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Utensils, Mail, KeyRound, Loader2, ArrowLeft } from 'lucide-react';
+import { Utensils, Mail, KeyRound, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { isAllowedEmail } from '../lib/allowedEmails';
 import { Button } from '../components/ui/Button';
@@ -9,13 +9,13 @@ const AuthContext = createContext({ session: null, signOut: async () => {} });
 export const useAuth = () => useContext(AuthContext);
 
 const LoginScreen = () => {
-  const [step, setStep] = useState('email'); // 'email' | 'code'
+  const [mode, setMode] = useState('login'); // 'login' | 'signup'
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
 
-  const sendCode = async (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setError(null);
     const clean = email.trim().toLowerCase();
@@ -23,36 +23,32 @@ const LoginScreen = () => {
       setError('Questo indirizzo non è abilitato al ricettario.');
       return;
     }
-    setBusy(true);
-    const { error: err } = await supabase.auth.signInWithOtp({
-      email: clean,
-      options: { emailRedirectTo: window.location.origin }
-    });
-    setBusy(false);
-    if (err) {
-      setError(
-        err.status === 429
-          ? 'Troppe richieste ravvicinate: aspetta qualche minuto e riprova.'
-          : `Invio non riuscito: ${err.message}`
-      );
+    if (mode === 'signup' && password.length < 6) {
+      setError('La password deve avere almeno 6 caratteri.');
       return;
     }
-    setEmail(clean);
-    setStep('code');
+
+    setBusy(true);
+    const { error: err } =
+      mode === 'login'
+        ? await supabase.auth.signInWithPassword({ email: clean, password })
+        : await supabase.auth.signUp({ email: clean, password });
+    setBusy(false);
+
+    if (!err) return; // onAuthStateChange apre l'app
+    const msg = (err.message || '').toLowerCase();
+    if (mode === 'login' && msg.includes('invalid login')) {
+      setError('Email o password sbagliate. Prima volta? Tocca "Crea la tua password".');
+    } else if (mode === 'signup' && msg.includes('already registered')) {
+      setError('Questo account esiste già: usa "Accedi" con la tua password.');
+    } else if (msg.includes('email not confirmed')) {
+      setError('Account da confermare: scrivi a Lorenzo.');
+    } else {
+      setError(`Accesso non riuscito: ${err.message}`);
+    }
   };
 
-  const verifyCode = async (e) => {
-    e.preventDefault();
-    setError(null);
-    setBusy(true);
-    const { error: err } = await supabase.auth.verifyOtp({
-      email,
-      token: code.trim(),
-      type: 'email'
-    });
-    setBusy(false);
-    if (err) setError('Codice non valido o scaduto. Controlla la mail o richiedine uno nuovo.');
-  };
+  const isLogin = mode === 'login';
 
   return (
     <div className="min-h-[100dvh] flex items-center justify-center bg-[#faf7f2] px-4">
@@ -65,61 +61,50 @@ const LoginScreen = () => {
             Ricettario <span className="text-amber-600 font-normal italic">di Famiglia</span>
           </h1>
           <p className="text-sm text-stone-500">
-            {step === 'email'
-              ? 'Inserisci la tua email: ti mandiamo un link per entrare.'
-              : `Abbiamo mandato una mail a ${email}. Aprila da questo telefono e tocca "Log In": l'app si apre già collegata.`}
+            {isLogin
+              ? 'Accedi con la tua email e la tua password.'
+              : 'Prima volta: scegli la password che userai per entrare.'}
           </p>
         </div>
 
-        {step === 'email' ? (
-          <form onSubmit={sendCode} className="space-y-4">
-            <Input
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              placeholder="nome@email.com"
-              icon={Mail}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              error={error}
-              required
-              aria-label="Email"
-            />
-            <Button type="submit" fullWidth size="lg" disabled={busy || !email}>
-              {busy ? 'Invio in corso…' : 'Inviami il link'}
-            </Button>
-          </form>
-        ) : (
-          <form onSubmit={verifyCode} className="space-y-4">
-            <Input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="Codice (se presente nella mail)"
-              icon={KeyRound}
-              value={code}
-              onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 10))}
-              error={error}
-              className="tracking-[0.3em] text-lg"
-              required
-              aria-label="Codice"
-            />
-            <Button type="submit" fullWidth size="lg" disabled={busy || code.length < 6}>
-              {busy ? 'Verifica…' : 'Entra'}
-            </Button>
-            <button
-              type="button"
-              onClick={() => {
-                setStep('email');
-                setCode('');
-                setError(null);
-              }}
-              className="w-full flex items-center justify-center gap-1.5 text-xs font-semibold text-stone-500 hover:text-stone-700"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" /> Cambia email o rimanda la mail
-            </button>
-          </form>
-        )}
+        <form onSubmit={submit} className="space-y-4">
+          <Input
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            placeholder="nome@email.com"
+            icon={Mail}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            aria-label="Email"
+          />
+          <Input
+            type="password"
+            autoComplete={isLogin ? 'current-password' : 'new-password'}
+            placeholder={isLogin ? 'Password' : 'Nuova password (min. 6 caratteri)'}
+            icon={KeyRound}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            error={error}
+            required
+            aria-label="Password"
+          />
+          <Button type="submit" fullWidth size="lg" disabled={busy || !email || !password}>
+            {busy ? 'Un attimo…' : isLogin ? 'Accedi' : 'Crea password ed entra'}
+          </Button>
+        </form>
+
+        <button
+          type="button"
+          onClick={() => {
+            setMode(isLogin ? 'signup' : 'login');
+            setError(null);
+          }}
+          className="w-full text-xs font-semibold text-amber-700 hover:text-amber-800"
+        >
+          {isLogin ? 'Prima volta? Crea la tua password' : 'Hai già una password? Accedi'}
+        </button>
       </div>
     </div>
   );
