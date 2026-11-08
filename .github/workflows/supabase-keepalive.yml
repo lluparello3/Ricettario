@@ -1,0 +1,26 @@
+# Riserva al cron di Vercel: ogni 2 giorni legge una riga dal database Supabase
+# così il progetto gratuito non va in pausa per inattività.
+# Si può lanciare anche a mano da GitHub > Actions > "Supabase keep-alive" > Run workflow.
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: '43 5 */2 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://zixtgbhyekjinfnddaes.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'sb_publishable_mdIvxcjrd57npaUNKY2JlQ_7Bv_IoIm' }}
+        run: |
+          for table in recipes shopping_list; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" \
+              "$SUPABASE_URL/rest/v1/$table?select=id&limit=1" \
+              -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY")
+            echo "$table -> HTTP $code"
+            if [ "$code" != "200" ]; then exit 1; fi
+          done

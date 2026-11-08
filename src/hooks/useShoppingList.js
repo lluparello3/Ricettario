@@ -9,6 +9,14 @@ import {
 } from '../utils/unitConverter';
 import { getAisleForIngredient } from '../utils/aisleHelper';
 
+// Copia profonda degli elementi: le modifiche non devono toccare lo stato React esistente
+const cloneList = (list) =>
+  list.map((item) => ({
+    ...item,
+    recipeSources: [...(item.recipeSources || [])],
+    quantities: (item.quantities || []).map((q) => ({ ...q }))
+  }));
+
 export const useShoppingList = () => {
   const { shoppingList, saveShoppingList } = useStorage();
 
@@ -59,7 +67,7 @@ export const useShoppingList = () => {
       });
     });
 
-    const currentList = [...shoppingList];
+    const currentList = cloneList(shoppingList);
 
     incomingItems.forEach((incoming) => {
       const normName = incoming.name.toLowerCase();
@@ -150,7 +158,7 @@ export const useShoppingList = () => {
   const addExtraItem = (name, amount = null, unit = '') => {
     if (!name || !name.trim()) return;
     const normName = name.trim();
-    const currentList = [...shoppingList];
+    const currentList = cloneList(shoppingList);
     const cat = getUnitCategory(unit);
 
     let existingGroup = currentList.find(

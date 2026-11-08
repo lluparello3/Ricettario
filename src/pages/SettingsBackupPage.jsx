@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { exportAppData, mergeRecipesByTitle } from '../utils/backupHelper';
 import { Button } from '../components/ui/Button';
 import { Modal } from '../components/ui/Modal';
+import { useAuth } from '../auth/AuthGate';
 import {
   Download,
   Upload,
@@ -9,7 +10,9 @@ import {
   ShieldCheck,
   Smartphone,
   HardDrive,
-  Info
+  Info,
+  LogOut,
+  UserRound
 } from 'lucide-react';
 
 export const SettingsBackupPage = ({
@@ -21,6 +24,7 @@ export const SettingsBackupPage = ({
 }) => {
   const [importSummary, setImportSummary] = useState(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const { session, signOut } = useAuth();
 
   // Handle JSON Export
   const handleExport = () => {
@@ -61,6 +65,22 @@ export const SettingsBackupPage = ({
           Gestisci l'archiviazione locale, scarica i backup in formato JSON o ripristina i dati.
         </p>
       </div>
+
+      {/* Account */}
+      <section className="bg-white p-5 rounded-3xl border border-stone-200/80 shadow-xs flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <UserRound className="w-5 h-5 text-amber-600 shrink-0" />
+          <div className="min-w-0">
+            <span className="text-xs text-stone-500 font-semibold uppercase block">Accesso come</span>
+            <span className="text-sm font-medium text-stone-800 truncate block">
+              {session?.user?.email}
+            </span>
+          </div>
+        </div>
+        <Button variant="secondary" size="sm" icon={LogOut} onClick={signOut}>
+          Esci
+        </Button>
+      </section>
 
       {/* Storage Information Card */}
       <section className="bg-white p-6 rounded-3xl border border-stone-200/80 shadow-xs space-y-4">
