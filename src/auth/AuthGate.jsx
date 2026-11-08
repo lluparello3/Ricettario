@@ -29,13 +29,21 @@ const LoginScreen = () => {
     }
 
     setBusy(true);
-    const { error: err } =
+    const { data, error: err } =
       mode === 'login'
         ? await supabase.auth.signInWithPassword({ email: clean, password })
         : await supabase.auth.signUp({ email: clean, password });
     setBusy(false);
 
-    if (!err) return; // onAuthStateChange apre l'app
+    if (!err && data?.session) return; // onAuthStateChange apre l'app
+    if (!err) {
+      // Supabase ha accettato ma non ha aperto la sessione: account già esistente
+      // oppure conferma via mail ancora attiva nelle impostazioni
+      setError(
+        'Non è stato possibile entrare: questo account esiste già oppure va confermato via mail. Scrivi a Lorenzo.'
+      );
+      return;
+    }
     const msg = (err.message || '').toLowerCase();
     if (mode === 'login' && msg.includes('invalid login')) {
       setError('Email o password sbagliate. Prima volta? Tocca "Crea la tua password".');

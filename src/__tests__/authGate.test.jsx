@@ -6,8 +6,8 @@ const auth = vi.hoisted(() => ({
   session: null,
   getSession: vi.fn(async () => ({ data: { session: auth.session } })),
   onAuthStateChange: vi.fn(() => ({ data: { subscription: { unsubscribe: () => {} } } })),
-  signInWithPassword: vi.fn(async () => ({ error: null })),
-  signUp: vi.fn(async () => ({ error: null })),
+  signInWithPassword: vi.fn(async () => ({ data: { session: {} }, error: null })),
+  signUp: vi.fn(async () => ({ data: { session: {} }, error: null })),
   signOut: vi.fn(async () => ({ error: null }))
 }));
 
@@ -67,6 +67,15 @@ describe('Accesso al ricettario', () => {
     await waitFor(() => screen.getByLabelText('Email'));
     fill('lluparello3@gmail.com', 'sbagliata');
     await waitFor(() => screen.getByText(/Email o password sbagliate/));
+  });
+
+  it('se la registrazione non apre la sessione lo dice invece di restare fermo', async () => {
+    auth.signUp.mockResolvedValueOnce({ data: { user: {}, session: null }, error: null });
+    render(<AuthGate><div>APP</div></AuthGate>);
+    await waitFor(() => screen.getByText('Prima volta? Crea la tua password'));
+    fireEvent.click(screen.getByText('Prima volta? Crea la tua password'));
+    fill('lluparello3@gmail.com', 'segreta123');
+    await waitFor(() => screen.getByText(/account esiste già oppure va confermato/));
   });
 
   it('con sessione valida mostra l\'app', async () => {
